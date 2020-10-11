@@ -1,0 +1,4 @@
+# @package _group_
+name: vgg16
+cfg: [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'M', 512, 512, 512, 'M', 512, 512, 512, 'M']
+path: /home/zhuminqin/Code/DisentangleCNN/pretrained_models/cub100_vgg16.pth
