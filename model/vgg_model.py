@@ -122,7 +122,7 @@ def VGG_features(cfg, model_path, pretrained=True, batch_norm=True, **kwargs):
     #     # pass
         model_dict = model.state_dict()
         pret_dcit = torch.load(model_path)
-        params = {k: v for k, v in pret_dcit.items() if k in model_dict}
+        params = {k: v for k, v in pret_dcit.items() if k in model_dict and not k.startswith('classifier.6')}
         model_dict.update(params)
         model.load_state_dict(model_dict)
         # model_dict = model.state_dict()

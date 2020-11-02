@@ -1,8 +1,8 @@
+import os
 import pickle
 import hydra
 from omegaconf import DictConfig
 import PIL.Image as Image
-
 
 
 def save_pkl(ph, pkl):
@@ -21,3 +21,7 @@ def pil_loader(path):
     with open(path, 'rb') as f:
         img = Image.open(f)
         return img.convert('RGB')
+def makedir(path):
+
+    if not os.path.exists(path):
+        os.makedirs(path)

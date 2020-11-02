@@ -4,10 +4,9 @@ import torch
 import torch.nn as nn
 
 
-def train_or_test(model, loader, optimizer=None, log=print):
-
+def train_or_test(model, loader, epoch, optimizer=None, log=print):
     is_train = optimizer is not None
-    log(f'is_train : {is_train} and optimizer is {optimizer is not None}')
+    # log(f'is_train : {is_train} and optimizer is {optimizer is not None}')
     start = time.time()
     n_items = 0
     n_correct = 0
@@ -43,7 +42,6 @@ def train_or_test(model, loader, optimizer=None, log=print):
 
             n_correct += (predicted == target).sum().item()
 
-
             n_batches += 1
             total_cross_entropy += loss.item()
 
@@ -53,7 +51,10 @@ def train_or_test(model, loader, optimizer=None, log=print):
                 loss.backward()
                 # log(f'before step param :{model.state_dict()["features.0.weight"]}')
                 optimizer.step()
-                # log(f'after step param :{model.state_dict()["features.0.weight"]}')
+
+        log.add_scalar('pretrain/step_' + 'train' + 'loss', loss.item(), epoch * len(loader) + i)
+        log.add_scalar('pretrain/step_' + 'test' + 'loss', loss.item(), epoch * len(loader) + i)
+        # log(f'after step param :{model.state_dict()["features.0.weight"]}')
         # log(f'\t\t ce {loss.item()}')
         # log(f'\t\t correct:{n_correct}')
         del img
@@ -61,24 +62,22 @@ def train_or_test(model, loader, optimizer=None, log=print):
         del output
         del predicted
 
-
     end = time.time()
-
-    log(f'\ttime:{end-start}')
-    log(f'\tce per batch:{total_cross_entropy/n_batches}')
-    log(f'\tn_correct:{n_correct} n_items:{n_items} acc: {n_correct/n_items * 100}%')
+    #
+    # log(f'\ttime:{end-start}')
+    # log(f'\tce per batch:{total_cross_entropy/n_batches}')
+    # log(f'\tn_correct:{n_correct} n_items:{n_items} acc: {n_correct/n_items * 100}%')
     return n_correct / n_items
 
 
-def train(model, loader, optimizer, log=print):
+def train(model, loader, optimizer, log, epoch):
     assert (optimizer is not None)
-    log('\ttrain:')
+    # log('\ttrain:')
     model.train()
-    return train_or_test(model=model, loader=loader, optimizer=optimizer, log=log)
+    return train_or_test(model=model, loader=loader, optimizer=optimizer, log=log, epoch=epoch)
 
 
-def test(model, loader, log):
-    log('\ttest:')
+def test(model, loader, log, epoch):
+    # log('\ttest:')
     model.eval()
-    return train_or_test(model=model, loader=loader, log=log)
-
+    return train_or_test(model=model, loader=loader, log=log, epoch=epoch)

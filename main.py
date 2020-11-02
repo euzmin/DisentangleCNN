@@ -1,9 +1,16 @@
-from cub_data import *
-from vgg_model import *
+import shutil
+
+from data.cub_data import *
+from model.vgg_model import *
+from dis_model import *
 from log import create_logger
 import train_and_test as tnt
 import hydra
-from torchvision import datasets, transforms
+import torchvision.transforms as transforms
+from  torchvision.utils import make_grid
+import time
+from torch.utils.tensorboard import SummaryWriter
+from helpers import *
 
 
 @hydra.main(config_path='conf', config_name='config')
@@ -12,10 +19,14 @@ def run(cfg):
     model_cfg = cfg.model.cfg
     model_path = cfg.model.path
     os.environ['CUDA_VISIBLE_DEVICES'] = '1'
-    # get_root_path()
-    # get_model_cfg()
-    model_dir = '/home/zhuminqin/Code/DisentangleCNN/saved_model'
-    log, log_close = create_logger(os.path.join(model_dir, 'train.log'))
+    root_dir = '/home/zhuminqin/Code/DisentangleCNN'
+    model_dir = os.path.join(root_dir,'saved_model'+str(int(time.time())))
+    makedir(model_dir)
+    shutil.copy(os.path.join(root_dir, 'dis_model.py'), os.path.join(model_dir, 'dis_model.py'))
+    shutil.copy(os.path.join(root_dir, './train_and_test.py'), os.path.join(model_dir, 'train_and_test.py'))
+    shutil.copy(os.path.join(root_dir, './main.py'), os.path.join(model_dir, 'main.py'))
+    log = SummaryWriter(log_dir=os.path.join(model_dir, 'log'))
+
     trans = transforms.Compose([
         transforms.Resize((224, 224)),
         transforms.ToTensor(),
@@ -38,54 +49,32 @@ def run(cfg):
         shuffle=False,
         collate_fn=case_collete
     )
-    # transform = transforms.Compose([transforms.ToTensor(),
-    #                                 transforms.Normalize([0.5], [0.5])])
+    # a visualize demo
+    dataiter = iter(train_loader)
+    _, images, labels = dataiter.next()
 
-    # data_train = datasets.CIFAR10(root=data_path,
-    #                               transform=trans,
-    #                               train=True,
-    #                               download=False)
+    # create grid of images
+    img_grid = make_grid(images)
 
-    # data_test = datasets.CIFAR10(root=data_path,
-    #                              transform=trans,
-    #                              train=False,
-    #                              download=False)
-    # train_loader = torch.utils.data.DataLoader(dataset=data_train,
-    #                                            batch_size=64,
-    #                                            shuffle=True)
-    #
-    # test_loader = torch.utils.data.DataLoader(dataset=data_test,
-    #                                           batch_size=64,
-    #                                           shuffle=True)
-    # net = VGG11_bn_features(model_cfg, model_path, pretrained=False)
-    log(f'model_cfg:{model_cfg}')
-    log(f'model_path:{model_path}')
-    net = VGG_features(model_cfg, model_path, pretrained=False, batch_norm=False)
+    # write to tensorboard
+    log.add_image('four_fashion_mnist_images', img_grid)
+
+    net = Dis_features(model_cfg, model_path, pretrained=False, batch_norm=True)
     net = net.cuda()
 
-    # log('start check param!')
-    # param = torch.load('/home/zhuminqin/Code/DisentangleCNN/pretrained_models/cub49_vgg16.pth')
-    # param_list = [[k, v] for k, v in param.items()]
-    # model_list = [[k, v] for k, v in net.state_dict().items()]
-    # for i, data in enumerate(model_list):
-    #     k = data[0]
-    #     v = data[1]
-    #     # print(v.shape)
-    #     # print(pred_list[i][1].shape)
-    #     if not v.equal(param_list[i][1]):
-    #         log(k)
-    # log('check done~')
-    # net_multi = torch.nn.DataParallel(net)
+    log.add_graph(net, images.cuda())
 
-    optimizer = torch.optim.SGD(
+    optimizer = torch.optim.Adam(
         params=net.parameters(),
-        lr=0.001, momentum=0.9)
+        lr=0.0001, betas=(0.9, 0.999), eps=1e-8, weight_decay=0)
     for epoch in range(50):
-        log('epoch: \t{0}'.format(epoch))
-        tnt.train(model=net, loader=train_loader, optimizer=optimizer, log=log)
-        tnt.test(model=net, loader=test_loader, log=log)
-    torch.save(net.state_dict(), os.path.join(model_dir, 'cub150_vgg16.pth'))
-    log_close()
+        print('epoch: \t{0}'.format(epoch))
+        acc = tnt.train(model=net, loader=train_loader, optimizer=optimizer, log=log, epoch=epoch)
+        log.add_scalar('pretrain_' + 'train' + '/epoch_acc', acc * 100, epoch)
+        acc = tnt.test(model=net, loader=test_loader, log=log, epoch=epoch)
+        log.add_scalar('pretrain_' + 'test' + '/epoch_acc', acc * 100, epoch)
+
+        torch.save(net.state_dict(), os.path.join(model_dir, 'cub'+str(epoch)+'_dis_adam''.pth'))
 
 
 if __name__ == '__main__':
